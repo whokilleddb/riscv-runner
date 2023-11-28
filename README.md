@@ -8,5 +8,5 @@ A RISC-V emulator written in Rust inspired by the [RVEmu Book](https://book.rvem
 - cargo
 
 ## References
-https://riscv.vercel.app/
+- https://riscv.vercel.app/
 - [The RISC-V Compressed Instruction Set Manual](https://riscv.org/wp-content/uploads/2015/05/riscv-compressed-spec-v1.7.pdf)
