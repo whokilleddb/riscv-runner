@@ -1,15 +1,22 @@
 use std::fs::File;
-use std::path::PathBuf;
 use std::io::Read;
+use std::path::PathBuf;
 
-mod cpu;
+mod bus;
 mod cli;
+mod cpu;
+mod dram;
 mod consts;
+mod instruction;
+
+use crate::cpu::Cpu;
+use crate::instruction::Instruction;
 
 fn main() {
+
     // Read command line arguments
     let bin_file: PathBuf = cli::get_cli_options().unwrap();
-
+    
     println!("================================== Rusty RISC-V Emulator ==================================\n");
     println!("[i] Reading Binary File:\t{}", bin_file.display());
 
@@ -19,29 +26,20 @@ fn main() {
     _file.read_to_end(&mut code).unwrap();
     println!("[i] Size of paylad read:\t{}\n", code.len());
 
-    let mut cpu: cpu::Cpu = cpu::Cpu::new(code);
+    // Load data into CPU
+    let mut cpu = Cpu::new(code);
+
+    //println!("{}", cpu);
     
-    if cfg!(debug_assertions) {
-        println!("==================================== Initial CPU State ====================================");
-        println!("{}", cpu);
-        println!("===========================================================================================");
+    loop {
+        // fetch instruction and update pc 
+        let inst: Instruction = match cpu.fetch() {
+            Ok(v) =>Instruction::new(v),
+            Err(_) => break,
+        };
+
+        println!("{:?}", inst);
     }
 
-    while cpu.pc < cpu.dram.len() as u64 {
-        // Fetch 32 bit instruction
-        let inst = cpu.fetch();
-        if cfg!(debug_assertions) {
-            print!("[i] Instruction: 0x{:08x}", inst);
-        }
-
-        // Move forward 4 bytes to next instruction
-        cpu.pc = cpu.pc + 4;
-
-        // Execute instruction
-        cpu.execute(inst);
-    }
-
-    println!("===================================== Final CPU State =====================================");
-        println!("{}", cpu);
-        println!("===========================================================================================");
+    
 }
