@@ -1,11 +1,13 @@
+use std::fmt;
+
 // R Type Instruction
 #[derive(Debug)]
-struct RType {
-    rd: usize,
-    funct3: u32,
-    rs1: usize,
-    rs2: usize,
-    funct7: u32
+pub struct RType {
+    pub rd: usize,
+    pub funct3: u32,
+    pub rs1: usize,
+    pub rs2: usize,
+    pub funct7: u32
 } 
 
 impl RType {
@@ -26,13 +28,22 @@ impl RType {
     }
 }
 
+impl fmt::Display for RType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, 
+            "R | rd: {:02} | funct3: {:02} | rs1: {:02} | rs2: {:02} | funct7: {:02}", 
+            self.rd, self.funct3, self.rs1, self.rs2, self.funct7)
+    }
+}
+
+
 // I Type Instruction
 #[derive(Debug)]
-struct IType {
-    rd: usize,
-    funct3: u32,
-    rs1: usize,
-    imm: u64
+pub struct IType {
+    pub rd: usize,
+    pub funct3: u32,
+    pub rs1: usize,
+    pub imm: u64
 }
 
 impl IType {
@@ -51,39 +62,58 @@ impl IType {
     }
 }
 
+impl fmt::Display for IType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, 
+            "I | rd: {:02} | funct3: {:02} | rs1: {:02} | imm[11:0]: {}", 
+            self.rd, self.funct3, self.rs1, self.imm
+        )
+    }
+}
+
 // S Type Instruction
 #[derive(Debug)]
-struct SType {
-    imm1: usize,
-    funct3: u32,
-    rs1: usize,
-    rs2: usize,
-    imm2: u32
+pub struct SType {
+    pub imm0: usize,
+    pub funct3: u32,
+    pub rs1: usize,
+    pub rs2: usize,
+    pub imm1: u32
 }
 
 impl SType {
     pub fn new(inst: u32) -> Self {
-		let imm1 = ((inst >> 7) & 0x1f) as usize;       // 7 - 11
+		let imm0 = ((inst >> 7) & 0x1f) as usize;       // 7 - 11
         let funct3 = (inst >> 12) & 0x7;                // 12 - 14
         let rs1 = ((inst >> 15) & 0x1f) as usize;       // 15 - 19
         let rs2 = ((inst >> 20) & 0x1f) as usize;       // 20 -24
-        let imm2 = (inst >> 25) & 0x7f;                 // 24 -31
+        let imm1 = (inst >> 25) & 0x7f;                 // 24 -31
 
 		Self {
-			imm1,
+			imm0,
 			funct3,
 			rs1,
 			rs2,
-			imm2 
+			imm1 
 		}
+    }
+}
+
+
+impl fmt::Display for SType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, 
+            "S | imm[4:0]: {:02} | funct3: {:02} | rs1: {:02} | rs2: {:02} | imm[11:0]: {}", 
+            self.imm0, self.funct3, self.rs1, self.rs2, self.imm1
+        )
     }
 }
 
 // U-Type Instruction 
 #[derive(Debug)]
-struct UType {
-    rd: usize,
-    imm: u64
+pub struct UType {
+    pub rd: usize,
+    pub imm: u64
 }
 
 impl UType {
@@ -98,38 +128,11 @@ impl UType {
     }
 }
 
-// Instruction Type Enum
-#[derive(Debug)]
-pub enum InstructionType {
-    R(RType),
-    I(IType),
-    S(SType),
-    U(UType)
+impl fmt::Display for UType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, 
+            "U | rd: {:02} | imm[31:12]: {}", 
+            self.rd, self.imm
+        )
+    }
 }
-
-// Instruction struct
-#[derive(Debug)]
-pub struct Instruction{ 
-    pub instruction: u32,
-    pub opcode: u32,
-    pub itype: InstructionType
-}
-
-
-impl Instruction  {
-    pub fn new(inst: u32) -> Self {
-        let opcode = inst  & 0x7f;
-        let itype = match opcode {
-            0x13 => InstructionType::R(RType::new(inst)),
-            0x33 => InstructionType::I(IType::new(inst)),
-            _ => InstructionType::U(UType::new(inst))
-        };
-
-        Self {
-            instruction: inst,
-            opcode,
-            itype
-        }
-    } 
-}
-

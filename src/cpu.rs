@@ -2,6 +2,7 @@
 use std::fmt;
 use std::error::Error;
 use crate::bus::Bus;
+use crate::instruction::*;
 use crate::consts::*;
 
 // This structure represents a CPU unit 
@@ -61,7 +62,60 @@ impl Cpu {
         }    
     }
 
-    pub fn execute(&mut self, instruction: u32) {
+    pub fn execute(&mut self, inst: u32) {
+        let opcode = inst  & 0x7f;
+        match opcode {
+            0x13 => {
+                let i_type: IType = IType::new(inst);
+                println!("{}", i_type);
+
+                // "The shift amount is encoded in the lower 6 bits of the I-immediate field for RV64I."
+                let shamt = (i_type.imm & 0x3f) as u32;
+
+                match i_type.funct3 {
+                    // addi
+                    0x0 => {
+                        self.regs[i_type.rd] = self.regs[i_type.rs1].wrapping_add(i_type.imm);
+                    },
+                    _ => {
+                        eprintln!("[!] Invalid funct3(0x{:02x}) for opcode(0x13)", i_type.funct3);
+                    }
+                }
+               
+            },
+            0x33 => {
+                // "SLL, SRL, and SRA perform logical left, logical right, and arithmetic right
+                // shifts on the value in register rs1 by the shift amount held in register rs2.
+                // In RV64I, only the low 6 bits of rs2 are considered for the shift amount."
+                let r_type: RType = RType::new(inst);
+                println!("{}", r_type);
+
+                let shamt = ((self.regs[r_type.rs2] & 0x3f) as u64) as u32;
+
+                match (r_type.funct3, r_type.funct7) {
+                    // add
+                    (0x0, 0x00) => {
+                        self.regs[r_type.rd] = self.regs[r_type.rs1].wrapping_add(self.regs[r_type.rs2]);
+                    },
+                    // mul
+                    (0x0, 0x01) => {
+                        self.regs[r_type.rd] = self.regs[r_type.rs1].wrapping_mul(self.regs[r_type.rs2]);
+                    },
+                    // sub
+                    (0x0, 0x20) => {
+                        self.regs[r_type.rd] = self.regs[r_type.rs1].wrapping_sub(self.regs[r_type.rs2]);
+                    },
+                    
+                    _ => {
+                        eprintln!("[!] Invalid funct3(0x{:02x}) - funct7(0x{:02x}) for opcode(0x33)", r_type.funct3, r_type.funct7);
+                    }
+                }
+                
+            }
+            _ => {
+                eprintln!("Invalid Intruction")
+            }
+        }
 
     }
 }
