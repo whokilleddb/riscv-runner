@@ -18,6 +18,10 @@ asm:  $(ASM_SRC_DIR)/$(ASM_SRC_FILE)
 	$(ASM_CC) $(ASM_CFLAGS) -o $(ASM_BUILD_DIR)/$(TARGET) $(ASM_SRC_DIR)/$(ASM_SRC_FILE)
 	$(OBJCPY) -O binary $(ASM_BUILD_DIR)/$(TARGET) $(ASM_BUILD_DIR)/$(TARGET).bin
 
+run:  rusty asm
+	./target/debug/riscv-runner --bin-file ./target/asm/riscv.bin
+
+
 .PHONY: clean default asm
 
 clean:
