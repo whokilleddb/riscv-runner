@@ -15,20 +15,25 @@ pub struct Cpu{
 
 impl fmt::Display for Cpu {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut j = 0;
         let mut msg = String::new();
 
         // Print Register stuff
         for i in 0..32 {
             msg = format!("{} x{}:\t0x{:08X}",  msg, i, self.regs[i]);
-            if i%4 == 3 {
+            j = j + 1;
+            if j%4 == 0 || self.regs[i] == u64::MAX { 
                 msg = format!("{}\n", msg);
+                if self.regs[i] == u64::MAX {
+                    j = 0;
+                }
             }
             else {
                 msg = format!("{}\t", msg);
             }
         }
 
-        msg = format!("{} pc:\t0x{:08X}", msg, self.pc);
+        msg = format!("{}\n pc:\t0x{:08X}", msg, self.pc);
         write!(f, "{}", msg)
     }
 }

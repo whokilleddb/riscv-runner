@@ -3,7 +3,7 @@ OBJCPY=riscv64-unknown-elf-objcopy
 ASM_CFLAGS=-Wl,-Ttext=0x0 -O0 -nostdlib -fverbose-asm
 ASM_SRC_DIR=asm
 ASM_BUILD_DIR=target/asm
-ASM_SRC_FILE=add-addi.s
+ASM_SRC_FILE=addi_add_mul_sub.s
 
 TARGET=riscv
 
