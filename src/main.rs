@@ -1,47 +1,50 @@
-use std::fs::File;
-use std::path::PathBuf;
-use std::io::Read;
+#![allow(dead_code, unused_variables)]
 
-mod cpu;
+use std::fs::File;
+use std::io::Read;
+use std::path::PathBuf;
+
+mod bus;
 mod cli;
+mod cpu;
+mod dram;
 mod consts;
+mod instruction;
+
+use crate::cpu::Cpu;
 
 fn main() {
+
     // Read command line arguments
     let bin_file: PathBuf = cli::get_cli_options().unwrap();
-
-    println!("================================== Rusty RISC-V Emulator ==================================\n");
+    
+    println!("====================================>> RISCV Runner <<====================================\n");
     println!("[i] Reading Binary File:\t{}", bin_file.display());
 
     // Read file contents as Vec<u8>
     let mut code: Vec<u8> = Vec::new();
     let mut _file = File::open(bin_file).unwrap();
     _file.read_to_end(&mut code).unwrap();
-    println!("[i] Size of paylad read:\t{}\n", code.len());
+    println!("[i] Size of paylad read:\t{}", code.len());
 
-    let mut cpu: cpu::Cpu = cpu::Cpu::new(code);
+    // Load data into CPU
+    let mut cpu = Cpu::new(code);
+
     
-    if cfg!(debug_assertions) {
-        println!("==================================== Initial CPU State ====================================");
-        println!("{}", cpu);
-        println!("===========================================================================================");
-    }
+    println!("\n================================>> Running Instructions <<================================\n");
+    loop {
+        // fetch instruction and update pc 
+        let inst: u32 = match cpu.fetch() {
+            Ok(v) =>v,
+            Err(_) => break,
+        };
 
-    while cpu.pc < cpu.dram.len() as u64 {
-        // Fetch 32 bit instruction
-        let inst = cpu.fetch();
-        if cfg!(debug_assertions) {
-            print!("[i] Instruction: 0x{:08x}", inst);
-        }
+        print!("[>] Instruction => 0x{:08x} => ", inst);
 
-        // Move forward 4 bytes to next instruction
-        cpu.pc = cpu.pc + 4;
-
-        // Execute instruction
+        // execute instruction
         cpu.execute(inst);
     }
 
-    println!("===================================== Final CPU State =====================================");
-        println!("{}", cpu);
-        println!("===========================================================================================");
+    println!("\n================================>> Final Register State <<================================\n");
+    println!("{}", cpu);
 }

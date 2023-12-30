@@ -1,99 +1,126 @@
+// Emulate a CPU
 use std::fmt;
-use crate::consts::MEMORY_SIZE;
+use std::error::Error;
+use crate::bus::Bus;
+use crate::instruction::*;
+use crate::consts::*;
 
-#[derive(Debug)]
-pub struct Cpu {
-    pub regs: [u64; 32],                // 32 general-purpose registers
-    pub pc:   u64,                      // Program counter
-    pub dram: Vec<u8>,                  // Memory regions for dynamic RAM
+// This structure represents a CPU unit 
+#[derive(Debug)]    
+pub struct Cpu{
+    pub regs: [u64; 32],        // 32 registers of RV64
+    pub pc: u64,                // Program counter
+    pub bus: Bus,               // System bus
 }
 
 impl fmt::Display for Cpu {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut j = 0;
         let mut msg = String::new();
 
         // Print Register stuff
         for i in 0..32 {
             msg = format!("{} x{}:\t0x{:08X}",  msg, i, self.regs[i]);
-            if i%4 == 3 {
+            j = j + 1;
+            if j%4 == 0 || self.regs[i] == u64::MAX { 
                 msg = format!("{}\n", msg);
+                if self.regs[i] == u64::MAX {
+                    j = 0;
+                }
             }
             else {
                 msg = format!("{}\t", msg);
             }
         }
 
-        msg = format!("{} pc:\t0x{:08X}", msg, self.pc);
+        msg = format!("{}\n pc:\t0x{:08X}", msg, self.pc);
         write!(f, "{}", msg)
     }
 }
 
 impl Cpu {
-    pub fn new(code: Vec<u8>) -> Cpu {
-       let mut regs: [u64; 32] = [0; 32];
+    pub fn new(code: Vec<u8>)  -> Self {
+        // set registers to zero
+        let mut regs = [0; 32];
 
-        // Set x0
-        regs[0] = 0;
+        // set up stack pointer
+        regs[2] = DRAM_BASE + DRAM_SIZE;
 
-        // Set x2 to size of Memory
-        regs[2] = MEMORY_SIZE;
-
-        // The base RISC-V ISA has fixed-length 32-bit instructions,
-        // so that must be naturally aligned on 4-byte boundary.
-        let mut p_code = code.clone();
-        let len = code.len();
-        let remainder = len % 4;
-        if remainder != 0 {
-            let padding = 4 - remainder;
-            p_code.resize(len + padding, 0);
-        }
-
-        Cpu {
-            regs: regs,
-            pc: 0,
-            dram: p_code
+        Self {
+            regs,
+            pc: DRAM_BASE,
+            bus: Bus::new(code)
         }
     }
 
-    pub fn fetch(&self) -> u32 {
-
-        let index = self.pc as usize;
-        return (self.dram[index] as u32)
-            | ((self.dram[index + 1] as u32) << 8)
-            | ((self.dram[index + 2] as u32) << 16)
-            | ((self.dram[index + 3] as u32) << 24);
+    pub fn fetch(&mut self)->Result<u32, Box<dyn Error>> {
+        let curr_pc = self.pc;
+        self.pc = self.pc + 4;
+        match self.bus.load(curr_pc, 32) {
+            Ok(v) => {
+                if v == 0 {
+                    return Err("Invalid Instruction (0x0000)".into());
+                }
+                Ok(v as u32)
+            },
+            Err(e) => Err(e)
+        }    
     }
 
     pub fn execute(&mut self, inst: u32) {
-        // From - Volume I: RISC-V User-Level ISA V2.2
-        // 2.2 Base Instruction Formats
-        let opcode = inst & 0x7f;                   // 0-6
-        let rd = ((inst >> 7) & 0x1f) as usize;     // 7-11
-        let rs1 = ((inst >> 15) & 0x1f) as usize;   // 15-19
-        let rs2 = ((inst >> 20) & 0x1f) as usize;   // 20-24
-
-        if cfg!(debug_assertions) {
-            print!("<opcode: {:08x} | rd: {:08x} | ", opcode, rd);
-            println!("rs1: {:08x} | rs2: {:08x}>", rs1, rs2);
-        }
-
-        // https://www.cs.sfu.ca/~ashriram/Courses/CS295/assets/notebooks/RISCV/RISCV_CARD.pdf
+        let opcode = inst  & 0x7f;
         match opcode {
             0x13 => {
-                // addi - R type
-                let imm = ((inst & 0xfff00000) as i32 as i64 >> 20) as u64;
-                self.regs[rd] = self.regs[rs1].wrapping_add(imm);
-            }
+                let i_type: IType = IType::new(inst);
+                println!("{}", i_type);
+
+                // "The shift amount is encoded in the lower 6 bits of the I-immediate field for RV64I."
+                let shamt = (i_type.imm & 0x3f) as u32;
+
+                match i_type.funct3 {
+                    // addi
+                    0x0 => {
+                        self.regs[i_type.rd] = self.regs[i_type.rs1].wrapping_add(i_type.imm);
+                    },
+                    _ => {
+                        eprintln!("[!] Invalid funct3(0x{:02x}) for opcode(0x13)", i_type.funct3);
+                    }
+                }
+               
+            },
             0x33 => {
-                // add - I-Type
-                self.regs[rd] = self.regs[rs1].wrapping_add(self.regs[rs2]);
+                // "SLL, SRL, and SRA perform logical left, logical right, and arithmetic right
+                // shifts on the value in register rs1 by the shift amount held in register rs2.
+                // In RV64I, only the low 6 bits of rs2 are considered for the shift amount."
+                let r_type: RType = RType::new(inst);
+                println!("{}", r_type);
+
+                let shamt = ((self.regs[r_type.rs2] & 0x3f) as u64) as u32;
+
+                match (r_type.funct3, r_type.funct7) {
+                    // add
+                    (0x0, 0x00) => {
+                        self.regs[r_type.rd] = self.regs[r_type.rs1].wrapping_add(self.regs[r_type.rs2]);
+                    },
+                    // mul
+                    (0x0, 0x01) => {
+                        self.regs[r_type.rd] = self.regs[r_type.rs1].wrapping_mul(self.regs[r_type.rs2]);
+                    },
+                    // sub
+                    (0x0, 0x20) => {
+                        self.regs[r_type.rd] = self.regs[r_type.rs1].wrapping_sub(self.regs[r_type.rs2]);
+                    },
+                    
+                    _ => {
+                        eprintln!("[!] Invalid funct3(0x{:02x}) - funct7(0x{:02x}) for opcode(0x33)", r_type.funct3, r_type.funct7);
+                    }
+                }
+                
             }
             _ => {
-                // Not implemented
-                if cfg!(debug_assertions) {
-                    println!("Instruction not implemented");
-                }
+                eprintln!("Invalid Intruction")
             }
         }
+
     }
 }
