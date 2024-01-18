@@ -88,6 +88,7 @@ impl Cpu {
                 }
                
             },
+            // add, mul, div, sub, rem, xor, or, and, sll. srl, sra, slt, sltu
             0x33 => {
                 // "SLL, SRL, and SRA perform logical left, logical right, and arithmetic right
                 // shifts on the value in register rs1 by the shift amount held in register rs2.
@@ -106,10 +107,43 @@ impl Cpu {
                     (0x0, 0x01) => {
                         self.regs[r_type.rd] = self.regs[r_type.rs1].wrapping_mul(self.regs[r_type.rs2]);
                     },
+                    // div
+                    (0x4, 0x01) => {
+                        // See: Chapter 6
+                        // “M” Standard Extension for Integer Multiplication and Division, Version 2.0
+                        // The RISC-V Instruction Set Manual Volume I: User-Level ISA
+                        match self.regs[r_type.rs2] {
+                            0 => {
+                                self.regs[r_type.rd] = self.regs[r_type.rs1]
+                            }
+                            _ => {
+                                self.regs[r_type.rd] = self.regs[r_type.rs1].wrapping_div(self.regs[r_type.rs2])
+                            }
+                        };
+                    },
+                    // rem 
+                    (0x6, 0x1) => {
+                        // See: Chapter 6
+                        // “M” Standard Extension for Integer Multiplication and Division, Version 2.0
+                        // The RISC-V Instruction Set Manual Volume I: User-Level ISA
+                        match self.regs[r_type.rs2] {
+                            0 => {
+                                self.regs[r_type.rd] = self.regs[r_type.rs1]
+                            }
+                            _ => {
+                                self.regs[r_type.rd] = self.regs[r_type.rs1].wrapping_rem(self.regs[r_type.rs2])
+                            }
+                        };
+                    }
+
                     // sub
                     (0x0, 0x20) => {
                         self.regs[r_type.rd] = self.regs[r_type.rs1].wrapping_sub(self.regs[r_type.rs2]);
                     },
+                    // sll
+                    (0x1, 0x00) => {
+                        self.regs[r_type.rd] = self.regs[r_type.rs1].wrapping_shl(shamt);
+                    }
                     
                     _ => {
                         eprintln!("[!] Invalid funct3(0x{:02x}) - funct7(0x{:02x}) for opcode(0x33)", r_type.funct3, r_type.funct7);

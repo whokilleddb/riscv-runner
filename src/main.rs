@@ -9,6 +9,7 @@ mod cli;
 mod cpu;
 mod dram;
 mod consts;
+mod opcodes;
 mod instruction;
 
 use crate::cpu::Cpu;
